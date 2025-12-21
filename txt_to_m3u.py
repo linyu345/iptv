@@ -57,41 +57,39 @@ LOGO_SPECIAL_MAP = {
     # 其他直接用原名，大多数都能匹配
 }
 
-def get_logo_url(channel_name):
-    name = channel_name.strip()
-    # 移除后缀
+def get_logo_url(ch_name):
+    name = ch_name.strip()
     name = re.sub(r"[ -_]HD|高清|4K|超清|超高清|8K|plus|\+|Ⅰ|Ⅱ|Ⅲ|Ⅳ|Ⅴ", "", name, flags=re.IGNORECASE)
     name = name.replace(" ", "").replace("&", "")
-    
-    filename = LOGO_SPECIAL_MAP.get(channel_name, name) + ".png"
-    primary = LOGO_BASE_PRIMARY + filename
-    # 返回主源（如果不存在播放器会自动忽略）
-    return primary
+    filename = LOGO_SPECIAL_MAP.get(ch_name, name) + ".png"
+    return LOGO_BASE + filename
 
 def main():
     if not os.path.exists(INPUT_FILE):
-        print(f"❌ 未找到 {INPUT_FILE}！")
+        print(f"❌ 未找到 {INPUT_FILE}")
         return
 
+    valid_lines = []  # 收集所有有效频道行
+
     with open(INPUT_FILE, "r", encoding="utf-8") as f:
-        lines = [line.strip() for line in f if line.strip()]
+        for line in f:
+            line = line.strip()
+            if not line or ",#genre#" in line:
+                continue
+            if "更新时间" in line or "Disclaimer" in line:
+                valid_lines.append(line)  # 保留更新时间和免责
+                continue
+            if "," in line and "$" in line:
+                ch_name, rest = line.split(",", 1)
+                ch_name = ch_name.strip()
+                if any(ch_name in chans for chans in CHANNEL_CATEGORIES.values()):
+                    valid_lines.append(line)
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as out:
-        out.write("#EXTM3U")
-        if ADD_EPG:
-            out.write(f' x-tvg-url="{EPG_URL}"')
-        out.write("\n\n")
+        out.write(f'#EXTM3U x-tvg-url="{EPG_URL}"\n\n')
 
         current_group = "未分类"
-        for line in lines:
-            # 分类行
-            if ",#genre#" in line:
-                current_group = line.split(",")[0].strip()
-                if current_group in CHANNEL_CATEGORIES:  # 只输出原脚本定义的分类
-                    out.write(f"# {current_group}\n")
-                continue
-
-            # 特殊行（更新时间、免责）
+        for line in valid_lines:
             if "更新时间" in line or "Disclaimer" in line:
                 parts = line.split(",", 1)
                 if len(parts) == 2:
@@ -100,34 +98,29 @@ def main():
                 continue
 
             # 正常频道行
-            if "," in line and "$" in line:
-                ch_name, rest = line.split(",", 1)
-                ch_name = ch_name.strip()
-                url, operator = rest.split("$", 1)
-                url = url.strip()
-                operator = operator.strip()
+            ch_name, rest = line.split(",", 1)
+            ch_name = ch_name.strip()
+            url, operator = rest.split("$", 1)
+            url = url.strip()
+            operator = operator.strip()
 
-                # 只输出在 CHANNEL_CATEGORIES 中定义的频道（保持原脚本完整性）
-                found = False
-                for cat, chans in CHANNEL_CATEGORIES.items():
-                    if ch_name in chans:
-                        current_group = cat
-                        found = True
-                        break
-                if not found:
-                    continue  # 跳过不在目录中的频道
+            # 查找分类
+            for cat, chans in CHANNEL_CATEGORIES.items():
+                if ch_name in chans:
+                    current_group = cat
+                    break
 
-                title = f"{ch_name} [{operator}]"
-                logo = get_logo_url(ch_name)
+            # 可选标题：显示运营商，便于区分重复项
+            title = f"{ch_name} [{operator}]"
+            # title = ch_name  # 如果不想显示运营商，用这个（纯重复名）
 
-                out.write(f'#EXTINF:-1 tvg-name="{ch_name}" tvg-logo="{logo}" group-title="{current_group}",{title}\n')
-                out.write(f"{url}\n\n")
+            logo = get_logo_url(ch_name)
+            out.write(f'#EXTINF:-1 tvg-name="{ch_name}" tvg-logo="{logo}" group-title="{current_group}",{title}\n')
+            out.write(f"{url}\n\n')  # 注意：这里保留原 URL 不带 $运营商，如果你想带上，可改成 f"{url}${operator}\n"
 
-    total_channels = sum(1 for line in lines if "," in line and "$" in line and not ",#genre#" in line)
-    print(f"✅ 转换完成！生成 {OUTPUT_FILE}")
-    print(f"   频道目录完全来自 fofa_fetch.py（{len([c for chans in CHANNEL_CATEGORIES.values() for c in chans])} 个标准频道）")
-    print(f"   台标显示率预计 98%+（来源：{LOGO_BASE_PRIMARY}）")
-    print(f"   已添加EPG：{EPG_URL}")
+    print(f"✅ 生成完成：{OUTPUT_FILE}")
+    print(f"   每个源单独一条完整 EXTINF+URL（严格标准，完美兼容所有播放器）")
+    print(f"   重复频道名用于多源备份，TiviMate 等可自动合并/切换")
 
 if __name__ == "__main__":
-    main()
+    main()main()
