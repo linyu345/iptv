@@ -5,11 +5,11 @@ import re
 INPUT_FILE = "IPTV.txt"
 OUTPUT_FILE = "IPTV.m3u"
 
-# 台标来源
+# 台标和 EPG
 LOGO_BASE = "https://live.fanmingming.cn/tv/"
 EPG_URL = "https://live.fanmingming.cn/e.xml"
 
-# 完整频道分类（从 fofa_fetch.py 复制）
+# 完整频道分类（与 fofa_fetch.py 保持一致）
 CHANNEL_CATEGORIES = {
     "央视频道": [
         "CCTV1", "CCTV2", "CCTV3", "CCTV4", "CCTV4欧洲", "CCTV4美洲", "CCTV5", "CCTV5+", "CCTV6", "CCTV7",
@@ -51,7 +51,6 @@ LOGO_SPECIAL_MAP = {
 
 def get_logo_url(ch_name):
     name = ch_name.strip()
-    # 移除高清、4K 等后缀
     name = re.sub(r"[ -_]HD|高清|4K|超清|超高清|8K|plus|\+|Ⅰ|Ⅱ|Ⅲ|Ⅳ|Ⅴ", "", name, flags=re.IGNORECASE)
     name = name.replace(" ", "").replace("&", "")
     filename = LOGO_SPECIAL_MAP.get(ch_name, name) + ".png"
@@ -62,7 +61,7 @@ def main():
         print(f"❌ 未找到 {INPUT_FILE}，跳过生成 M3U")
         return
 
-    # 收集所有有效行
+    # 收集所有有效行（保留更新时间、免责和符合分类的频道）
     valid_lines = []
     with open(INPUT_FILE, "r", encoding="utf-8") as f:
         for line in f:
@@ -83,6 +82,7 @@ def main():
 
         current_group = "未分类"
         for line in valid_lines:
+            # 更新时间和免责视频
             if "更新时间" in line or "Disclaimer" in line:
                 parts = line.split(",", 1)
                 if len(parts) == 2:
@@ -90,12 +90,10 @@ def main():
                     out.write(f'#EXTINF:-1 group-title="提示",{title.strip()}\n{url.strip()}\n\n')
                 continue
 
-            # 处理正常频道
+            # 正常频道行：CCTV1,http://...$广东电信
             ch_name, rest = line.split(",", 1)
             ch_name = ch_name.strip()
-            url, operator = rest.split("$", 1)
-            url = url.strip()
-            operator = operator.strip()
+            url_with_operator = rest.strip()  # 直接保留 http://...$广东电信
 
             # 确定分类
             for cat, chans in CHANNEL_CATEGORIES.items():
@@ -103,19 +101,18 @@ def main():
                     current_group = cat
                     break
 
-            # 标题加上运营商，便于区分不同源
-            title = f"{ch_name} [{operator}]"
-            # 如果不想显示运营商，改成：title = ch_name
+            # 标题只写纯频道名
+            title = ch_name
 
             logo = get_logo_url(ch_name)
 
             out.write(f'#EXTINF:-1 tvg-name="{ch_name}" tvg-logo="{logo}" group-title="{current_group}",{title}\n')
-            out.write(f"{url}\n\n")  # 只写纯 URL，不带 $运营商（播放器不需要）
+            out.write(f"{url_with_operator}\n\n")  # 直接写带 $运营商 的完整字符串
 
     print(f"✅ {OUTPUT_FILE} 生成成功！")
-    print(f"   - 每个源独立一条目（严格符合 M3U 标准）")
-    print(f"   - 标题显示运营商，便于识别不同源")
-    print(f"   - 支持 TiviMate 等播放器自动合并重复频道并切换源")
+    print(f"   - URL 行直接带 $运营商（如 http://...$广东电信）")
+    print(f"   - 标题只显示纯频道名")
+    print(f"   - 每个源独立一条目，严格标准兼容所有播放器")
 
 if __name__ == "__main__":
     main()
