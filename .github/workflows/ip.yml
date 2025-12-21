@@ -1,21 +1,21 @@
-name: IPTV 抓取 + 转 M3U + 流畅度测试
+name: FOFA IP & M3U 生成
 
 on:
   schedule:
-    - cron: "*/15 * * * *"   # 每15分钟运行一次（可根据需要调整）
-  workflow_dispatch:         # 支持手动触发
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
 
 permissions:
-  contents: write            # 必须，允许推送提交
+  contents: write   # 允许 Actions 推送提交
 
 jobs:
-  fetch-test-and-generate:
+  fetch-and-generate:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          persist-credentials: true
+          persist-credentials: true   # 必须保留，用于 git push
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -27,19 +27,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests
 
-      - name: Install ffmpeg & ffprobe（用于频道检测和流畅测试）
+      - name: Install ffmpeg & ffprobe（用于频道检测）
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: 步骤1：运行 fofa_fetch.py（抓取IP、检测、生成 IPTV.txt）
+      - name: 运行 1. fofa_fetch.py（抓取IP、检测、生成 IPTV.txt）
         run: python fofa_fetch.py
 
-      - name: 步骤2：运行 txt_to_m3u.py（生成带台标的 IPTV.m3u）
+      - name: 运行 2. txt_to_m3u.py（将 IPTV.txt 转为带台标的 IPTV.m3u）
         run: python txt_to_m3u.py
-
-      - name: 步骤3：运行 iptv_stream_tester.py（测试流畅度，生成 IPTV_smooth.txt）
-        run: python iptv_stream_tester.py
 
       - name: Commit and push all changes
         run: |
@@ -50,7 +47,5 @@ jobs:
           git add zubo.txt || true
           git add IPTV.txt || true
           git add IPTV.m3u || true
-          git add IPTV_smooth.txt || true
-          git add IPTV_bad.txt || true
-          git commit -m "自动更新：IP + IPTV.txt + IPTV.m3u + 流畅度测试（IPTV_smooth.txt）" || echo "⚠️ 无需提交"
+          git commit -m "自动更新：IP列表 + IPTV.txt + IPTV.m3u（带台标）" || echo "⚠️ 无需提交"
           git push origin main || echo "⚠️ 推送失败"
