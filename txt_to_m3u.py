@@ -6,7 +6,7 @@ INPUT_FILE = "IPTV.txt"
 OUTPUT_FILE = "IPTV.m3u"
 
 # 台标和 EPG
-LOGO_BASE = "https://live.fanmingming.cn/tv/"
+LOGO_BASE = "https://gcore.jsdelivr.net/gh/taksssss/tv/icon/"
 EPG_URL = "https://live.fanmingming.cn/e.xml"
 
 # 完整频道分类（与 fofa_fetch.py 保持一致）
