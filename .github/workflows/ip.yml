@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # 允许 Actions 推送提交
+  contents: write
 
 jobs:
   fetch-and-generate:
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          persist-credentials: true   # 必须保留，用于 git push
+          persist-credentials: true
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -27,15 +27,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests
 
-      - name: Install ffmpeg & ffprobe（用于频道检测）
+      - name: Install ffmpeg & ffprobe
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: 运行 1. fofa_fetch.py（抓取IP、检测、生成 IPTV.txt）
+      - name: 运行 1. fofa_fetch.py
         run: python fofa_fetch.py
 
-      - name: 运行 2. txt_to_m3u.py（将 IPTV.txt 转为带台标的 IPTV.m3u）
+      - name: 运行 2. txt_to_m3u.py
         run: python txt_to_m3u.py
 
       - name: Commit and push all changes
@@ -47,5 +47,5 @@ jobs:
           git add zubo.txt || true
           git add IPTV.txt || true
           git add IPTV.m3u || true
-          git commit -m "自动更新：IP列表 + IPTV.txt + IPTV.m3u（带台标）" || echo "⚠️ 无需提交"
-          git push origin main || echo "⚠️ 推送失败"
+          git commit -m "自动更新：IP列表 + IPTV.txt + IPTV.m3u（带台标）" || echo "无变更，无需提交"
+          git push origin main || echo "推送失败（可能无变更）"
